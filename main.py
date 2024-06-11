@@ -1,8 +1,21 @@
 import csv
 from collections import defaultdict
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tabulate import tabulate
+from colorama import Fore, Style
 
-# Шаг 1: Прочитать данные из файла
-file_path = 'addresses.csv'  # Замените на путь к вашему файлу
+# Function to print stylized logos
+def print_logos():
+    print(f"{Fore.GREEN}{Style.BRIGHT}FAIR DECENTRALISATION")
+    print(f"{Fore.RED}{Style.BRIGHT}powered by ZKsync{Style.RESET_ALL}\n")  # Add a newline here
+
+# Print stylized logos
+print_logos()
+
+# Step 1: Read data from file
+file_path = 'addresses.csv'  # Replace with your file path
 
 addresses = []
 with open(file_path, mode='r') as file:
@@ -11,10 +24,10 @@ with open(file_path, mode='r') as file:
         address, reward = row[0], int(row[1])
         addresses.append((address, reward))
 
-# Шаг 2: Сортировать по количеству наград
+# Step 2: Sort by reward amount
 addresses.sort(key=lambda x: x[1])
 
-# Шаг 3: Разделить на категории
+# Step 3: Categorize by reward amount
 categories = {
     "0-2000": [],
     "2000-5000": [],
@@ -38,20 +51,45 @@ for address, reward in addresses:
     else:
         categories["50000+"].append((address, reward))
 
-# Шаг 4: Подсчитать общее количество токенов
+# Step 4: Calculate total tokens
 total_tokens = sum(reward for address, reward in addresses)
 
-# Шаг 5: Рассчитать распределение токенов по категориям
+# Step 5: Calculate distribution by category
 distribution = defaultdict(lambda: {"count": 0, "tokens": 0})
 for category, entries in categories.items():
     distribution[category]["count"] = len(entries)
     distribution[category]["tokens"] = sum(reward for address, reward in entries)
 
-# Шаг 6: Вывести результаты
-print(f"Общее количество распределенных токенов: {total_tokens}")
-print("Распределение по категориям:")
-
+# Step 6: Create a DataFrame for better visualization
+data = []
 for category, stats in distribution.items():
     count_percentage = (stats["count"] / len(addresses)) * 100
     token_percentage = (stats["tokens"] / total_tokens) * 100
-    print(f"Категория {category}: {stats['count']} кошельков ({count_percentage:.2f}%), {stats['tokens']} токенов ({token_percentage:.2f}%)")
+    data.append([category, stats["count"], count_percentage, stats["tokens"], token_percentage])
+
+df = pd.DataFrame(data, columns=["Category", "Wallet Count", "Wallet %", "Tokens", "Tokens %"])
+
+# Function to colorize values
+def colorize(value, category):
+    if category in ["20000-50000", "50000+"]:
+        return f"{Fore.RED}{value:.2f}{Style.RESET_ALL}"
+    else:
+        return f"{Fore.GREEN}{value:.2f}{Style.RESET_ALL}"
+
+# Apply colorize function to the DataFrame
+df["Wallet %"] = df.apply(lambda x: colorize(x["Wallet %"], x["Category"]), axis=1)
+df["Tokens %"] = df.apply(lambda x: colorize(x["Tokens %"], x["Category"]), axis=1)
+
+# Print table with tabulate
+print(f"{Fore.CYAN}Distribution by Categories:{Style.RESET_ALL}")
+print(tabulate(df, headers='keys', tablefmt='pretty', showindex=False))
+
+# Step 7: Plot the data
+plt.figure(figsize=(14, 7))
+sns.barplot(x="Category", y="Wallet Count", data=df, hue="Category", palette="Blues_d", dodge=False, legend=False)
+plt.ylabel("Wallet Count")
+plt.twinx()
+sns.lineplot(x="Category", y="Tokens %", data=df, marker='o', color='r', label="Token %")
+plt.ylabel("Token %")
+plt.title('Wallet and Token Distribution by Category')
+plt.show()
